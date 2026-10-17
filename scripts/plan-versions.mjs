@@ -64,7 +64,7 @@ if (maxTags > 0) candidates = candidates.slice(0, maxTags)
 
 const PLATFORMS = [
   { platform: 'mac-arm64', runner: 'macos-14', script: 'package:desktop:mac:arm64:unsigned' },
-  { platform: 'mac-x64', runner: 'macos-13', script: 'package:desktop:mac:x64:unsigned' },
+  { platform: 'mac-x64', runner: 'macos-14', script: 'package:desktop:mac:x64:unsigned' },
   { platform: 'win-x64', runner: 'windows-latest', script: 'package:desktop:win:x64:unsigned' },
 ]
 const matrix = {

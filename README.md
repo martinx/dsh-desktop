@@ -13,7 +13,7 @@ Supported targets, limited by what upstream packaging defines:
 | Platform | Target | Runner | Installer |
 | --- | --- | --- | --- |
 | macOS Apple silicon | `mac-arm64` | `macos-14` | `.dmg` |
-| macOS Intel | `mac-x64` | `macos-13` | `.dmg` |
+| macOS Intel | `mac-x64` | `macos-14` (cross-build) | `.dmg` |
 | Windows x64 | `win-x64` | `windows-latest` | `.exe` |
 | Linux | — | — | not supported upstream |
 
