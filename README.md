@@ -6,7 +6,7 @@ Unofficial, unsigned desktop builds of [DeepSeek Harness](https://github.com/dee
 - **Nightly** — rebuilds whenever upstream `master` moves; rolling `nightly` release
 - **Versions** — one release per upstream `dsh-v*` tag
 
-The site is Chinese/English, picks the right installer for the visitor's OS, and lets them choose any published version. Download links point at the release assets.
+The site picks the right installer for the visitor's OS and lets them choose any published version. Download links point at the release assets.
 
 Supported targets, limited by what upstream packaging defines:
 
