@@ -148,6 +148,8 @@ jobs:
           fi
           gh release upload nightly "$dmg" --clobber
       - name: Regenerate download manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: node scripts/build-manifest.mjs > site/data/builds.json
       - uses: actions/upload-pages-artifact@v3
         with:
