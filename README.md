@@ -13,8 +13,8 @@ Supported targets, limited by what upstream packaging defines:
 | Platform | Target | Runner | Installer |
 | --- | --- | --- | --- |
 | macOS Apple silicon | `mac-arm64` | `macos-14` | `.dmg` |
-| macOS Intel | `mac-x64` | `macos-14` (cross-build) | `.dmg` |
 | Windows x64 | `win-x64` | `windows-latest` | `.exe` |
+| macOS Intel | — | — | no free Intel runner; cross-build fails the runtime smoke test |
 | Linux | — | — | not supported upstream |
 
 `apps/desktop/scripts/electron-builder-config.mjs` carries an AppImage config, but the packaging pipeline (`package-target.ts`, `desktop-build-paths.mjs`) only implements `mac-arm64`, `mac-x64`, and `win-x64`. There is no Linux artifact path to drive.

@@ -140,7 +140,7 @@
     .dl-row { flex-direction: column; align-items: stretch; }
     .window .body { grid-template-columns: 1fr; }
     .window .side { display: none; }
-    th:nth-child(4), td:nth-child(4) { display: none; }
+    th:nth-child(2), td:nth-child(2) { display: none; }
   }
 </style>
 </head>
@@ -234,10 +234,9 @@
             <th data-i18n="table.channel">通道</th>
             <th data-i18n="table.date">构建时间</th>
             <th data-i18n="table.macarm">macOS Apple 芯片</th>
-            <th data-i18n="table.macintel">macOS Intel</th>
             <th data-i18n="table.win">Windows x64</th>
           </tr></thead>
-          <tbody id="version-rows"><tr><td colspan="6" class="empty">…</td></tr></tbody>
+          <tbody id="version-rows"><tr><td colspan="5" class="empty">…</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -294,8 +293,8 @@
           <p data-i18n="faq.update.a">未签名构建不包含自动更新器。回到本页下载最新的 nightly 或版本安装包，覆盖安装即可，数据保存在用户目录不受影响。</p>
         </details>
         <details>
-          <summary data-i18n="faq.linux.q">支持 Linux 吗？</summary>
-          <p data-i18n="faq.linux.a">暂不支持。上游打包流程只定义了 mac-arm64、mac-x64、win-x64 三个构建目标，没有可用的 Linux 产物管线。</p>
+          <summary data-i18n="faq.linux.q">支持 Linux / Intel Mac 吗？</summary>
+          <p data-i18n="faq.linux.a">暂不支持。上游打包流程只定义了 mac-arm64、mac-x64、win-x64 三个构建目标，没有可用的 Linux 产物管线；Intel Mac 也没有提供，因为免费的 Intel runner 已下线，交叉编译无法通过运行时冒烟测试。</p>
         </details>
       </div>
     </section>
@@ -352,8 +351,8 @@
       'faq.unsigned.a': 'Apple Developer ID 与公证需要付费开发者账号，Windows 代码签名需要 EV 证书，且上游的发布流程绑定自托管签名机器，无法在公开 CI 复现。因此这里只提供未签名的开发构建。',
       'faq.update.q': '怎么更新？',
       'faq.update.a': '未签名构建不包含自动更新器。回到本页下载最新的 nightly 或版本安装包，覆盖安装即可，数据保存在用户目录不受影响。',
-      'faq.linux.q': '支持 Linux 吗？',
-      'faq.linux.a': '暂不支持。上游打包流程只定义了 mac-arm64、mac-x64、win-x64 三个构建目标，没有可用的 Linux 产物管线。',
+      'faq.linux.q': '支持 Linux / Intel Mac 吗？',
+      'faq.linux.a': '暂不支持。上游打包流程只定义了 mac-arm64、mac-x64、win-x64 三个构建目标，没有可用的 Linux 产物管线；Intel Mac 也没有提供，因为免费的 Intel runner 已下线，交叉编译无法通过运行时冒烟测试。',
       'footer.left': '非官方构建 · Unofficial builds of DeepSeek Harness',
       'footer.source': '构建源码', 'footer.upstream': '上游项目',
       'copy': '复制', 'copied': '已复制',
@@ -405,8 +404,8 @@
       'faq.unsigned.a': 'Apple Developer ID signing and notarization require a paid account, Windows code signing requires an EV certificate, and upstream publishes from self-hosted signing machines that public CI cannot reproduce. So these are unsigned development builds.',
       'faq.update.q': 'How do I update?',
       'faq.update.a': 'Unsigned builds ship without the updater. Download the latest nightly or version here and install over the existing app; your data stays in your user directory.',
-      'faq.linux.q': 'Is Linux supported?',
-      'faq.linux.a': 'Not yet. Upstream packaging defines only mac-arm64, mac-x64, and win-x64 targets; there is no working Linux artifact pipeline.',
+      'faq.linux.q': 'Is Linux or Intel Mac supported?',
+      'faq.linux.a': 'Not yet. Upstream packaging defines only mac-arm64, mac-x64, and win-x64 targets; there is no working Linux artifact pipeline. Intel Mac is not offered either: free Intel runners are gone and a cross-build fails the runtime smoke test.',
       'footer.left': 'Unofficial builds of DeepSeek Harness',
       'footer.source': 'Build source', 'footer.upstream': 'Upstream project',
       'copy': 'Copy', 'copied': 'Copied',
@@ -422,7 +421,6 @@
 
   const PLATFORMS = [
     { id: 'mac-arm64', hint: 'arm64' },
-    { id: 'mac-x64', hint: 'x64' },
     { id: 'win-x64', hint: 'x64' },
   ];
 
@@ -523,7 +521,7 @@
     const builds = orderedBuilds();
     const body = document.getElementById('version-rows');
     if (!builds.length) {
-      body.innerHTML = `<tr><td colspan="6" class="empty">${t('empty')}</td></tr>`;
+      body.innerHTML = `<tr><td colspan="5" class="empty">${t('empty')}</td></tr>`;
       return;
     }
     body.innerHTML = builds.map((build) => {
@@ -539,7 +537,6 @@
         <td>${channel}</td>
         <td class="num">${formatDate(build.builtAt)}</td>
         <td>${cell('mac-arm64')}</td>
-        <td>${cell('mac-x64')}</td>
         <td>${cell('win-x64')}</td>
       </tr>`;
     }).join('');
@@ -578,7 +575,7 @@
       document.getElementById('repo-link-2').href = `https://github.com/${state.data.repo}`;
       render();
     } catch {
-      document.getElementById('version-rows').innerHTML = `<tr><td colspan="6" class="empty">${t('loadFail')}</td></tr>`;
+      document.getElementById('version-rows').innerHTML = `<tr><td colspan="5" class="empty">${t('loadFail')}</td></tr>`;
     }
   }
 
