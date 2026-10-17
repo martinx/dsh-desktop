@@ -62,16 +62,30 @@ if (!backfill && candidates.length > 0) {
 candidates.sort((left, right) => compareVersions(right.version, left.version))
 if (maxTags > 0) candidates = candidates.slice(0, maxTags)
 
-const matrix = { include: candidates }
+const PLATFORMS = [
+  { platform: 'mac-arm64', runner: 'macos-14', script: 'package:desktop:mac:arm64:unsigned' },
+  { platform: 'mac-x64', runner: 'macos-13', script: 'package:desktop:mac:x64:unsigned' },
+  { platform: 'win-x64', runner: 'windows-latest', script: 'package:desktop:win:x64:unsigned' },
+]
+const matrix = {
+  include: candidates.flatMap((entry) => PLATFORMS.map((platform) => ({
+    ...platform,
+    tag: entry.tag,
+    version: entry.version,
+    sha: entry.sha,
+  }))),
+}
+const tags = { include: candidates.map(({ tag, version, sha }) => ({ tag, version, sha })) }
 const output = process.env.GITHUB_OUTPUT
 if (output) {
   appendFileSync(output, `has=${candidates.length > 0}\n`)
   appendFileSync(output, `matrix=${JSON.stringify(matrix)}\n`)
+  appendFileSync(output, `tags=${JSON.stringify(tags)}\n`)
 }
 const summary = process.env.GITHUB_STEP_SUMMARY
 if (summary) {
-  const lines = [`Selected ${candidates.length} tag(s) to build.`, '']
+  const lines = [`Selected ${candidates.length} tag(s) × ${PLATFORMS.length} platform(s).`, '']
   for (const entry of candidates) lines.push(`- \`${entry.tag}\` (${entry.sha?.slice(0, 10) ?? 'unknown'})`)
   appendFileSync(summary, `${lines.join('\n')}\n`)
 }
-process.stdout.write(`${JSON.stringify(matrix, null, 2)}\n`)
+process.stdout.write(`${JSON.stringify({ matrix, tags }, null, 2)}\n`)

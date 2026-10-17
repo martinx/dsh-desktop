@@ -12,6 +12,14 @@ const MARKER = /<!--\s*dsh-build:\s*(\{.*?\})\s*-->/su
 const gh = (args) => JSON.parse(execFileSync('gh', [...args, '--repo', REPO], { encoding: 'utf8' }))
 const releases = gh(['release', 'list', '--limit', '200', '--json', 'tagName,publishedAt,isPrerelease'])
 
+/** Map an installer filename to the platform it targets. */
+function platformOf(name) {
+  if (name.includes('-mac-arm64-')) return 'mac-arm64'
+  if (name.includes('-mac-x64-')) return 'mac-x64'
+  if (name.includes('-win-x64-')) return 'win-x64'
+  return 'unknown'
+}
+
 const builds = []
 for (const release of releases) {
   const detail = gh(['release', 'view', release.tagName, '--json', 'body,url,assets'])
@@ -35,6 +43,8 @@ for (const release of releases) {
       size: asset.size,
       downloads: asset.downloadCount,
       url: asset.url,
+      platform: platformOf(asset.name),
+      extension: asset.name.split('.').pop(),
     })),
   })
 }

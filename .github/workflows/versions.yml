@@ -1,9 +1,8 @@
 name: Desktop versions
 
-# Builds one unsigned macOS arm64 disk image per upstream `dsh-v*` tag, so every
-# published upstream version keeps a downloadable artifact here. Scheduled runs
-# only build tags newer than the newest existing release; manual dispatch can
-# backfill older tags.
+# Builds unsigned macOS (arm64 + x64) and Windows x64 packages for every
+# upstream `dsh-v*` tag. Scheduled runs only build tags newer than the newest
+# existing release; manual dispatch can backfill older tags.
 on:
   schedule:
     - cron: '35 * * * *'
@@ -41,6 +40,7 @@ jobs:
     outputs:
       has: ${{ steps.plan.outputs.has }}
       matrix: ${{ steps.plan.outputs.matrix }}
+      tags: ${{ steps.plan.outputs.tags }}
     steps:
       - uses: actions/checkout@v4
       - name: Plan builds
@@ -52,14 +52,14 @@ jobs:
         run: node scripts/plan-versions.mjs
 
   build:
-    name: Package ${{ matrix.version }}
+    name: Package ${{ matrix.version }} · ${{ matrix.platform }}
     needs: discover
     if: needs.discover.outputs.has == 'true'
-    runs-on: macos-14
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 300
     strategy:
       fail-fast: false
-      max-parallel: 3
+      max-parallel: 6
       matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
@@ -72,12 +72,22 @@ jobs:
         with:
           node-version: '24'
           cache: pnpm
+      - name: Prepare unsigned Windows packaging settings
+        if: matrix.platform == 'win-x64'
+        shell: pwsh
+        run: |
+          @"
+          DSH_DESKTOP_APP_ID=com.deepseek.harness
+          DSH_DESKTOP_AUTO_UPDATE_ENV=test
+          DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN=https://www.deepseek.com
+          DSH_DESKTOP_MANDATORY_UPDATE_CONFIG={"allowedAuthOrigins":["https://www.deepseek.com"]}
+          "@ | Set-Content -Encoding utf8 apps/desktop/.env.windows
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Package unsigned disk image
-        run: pnpm run package:desktop:mac:arm64:unsigned
+      - name: Package unsigned installer
+        run: pnpm run ${{ matrix.script }}
       - name: Verify the checked-out tag matches the planned version
-        id: meta
+        shell: bash
         run: |
           set -euo pipefail
           version=$(node -p "require('./package.json').version")
@@ -85,29 +95,30 @@ jobs:
             echo "package.json version $version does not match tag ${{ matrix.tag }}" >&2
             exit 1
           fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          test -n "$(find apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts -name '*.dmg' -type f | head -1)"
-      - name: Upload disk image
+      - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: dmg-${{ matrix.version }}
-          path: apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/**/*.dmg
+          name: version-${{ matrix.tag }}-${{ matrix.platform }}
+          path: |
+            apps/desktop/.desktop-build/targets/${{ matrix.platform }}/unsigned-artifacts/**/*.dmg
+            apps/desktop/.desktop-build/targets/${{ matrix.platform }}/unsigned-artifacts/**/*.exe
           if-no-files-found: error
           retention-days: 14
 
   publish:
     name: Release ${{ matrix.version }}
     needs: [discover, build]
-    if: needs.discover.outputs.has == 'true'
+    if: needs.discover.outputs.has == 'true' && needs.build.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+      matrix: ${{ fromJSON(needs.discover.outputs.tags) }}
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: dmg-${{ matrix.version }}
+          pattern: version-${{ matrix.tag }}-*
+          merge-multiple: true
           path: dist
       - name: Create the version release
         env:
@@ -117,28 +128,30 @@ jobs:
           TAG: ${{ matrix.tag }}
         run: |
           set -euo pipefail
-          dmg=$(find dist -name '*.dmg' -type f | head -1)
-          test -n "$dmg"
+          files=$(find dist -type f \( -name '*.dmg' -o -name '*.exe' \) | sort)
+          test -n "$files"
           built=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
           meta=$(node -e 'console.log(JSON.stringify({channel:"version",version:process.argv[1],sha:process.argv[2],builtAt:process.argv[3]}))' "$VERSION" "$SHA" "$built")
           {
             echo "<!-- dsh-build: $meta -->"
             echo
-            echo "Unsigned macOS arm64 (Apple Silicon) build of upstream tag \`$TAG\`."
+            echo "Unsigned macOS (arm64, x64) and Windows (x64) builds of upstream tag \`$TAG\`."
             echo
-            echo "This is an unofficial build. macOS quarantines unsigned downloads; after copying the app to \`/Applications\`, run:"
+            echo "These are unofficial builds. macOS quarantines unsigned downloads; after copying the app to \`/Applications\`, run:"
             echo
             echo '```sh'
             echo 'xattr -dr com.apple.quarantine "/Applications/DeepSeek Harness.app"'
             echo '```'
+            echo
+            echo 'Windows shows a SmartScreen warning; choose "More info" then "Run anyway".'
           } > release.md
           gh release create "$TAG" --title "Version $VERSION" --notes-file release.md
-          gh release upload "$TAG" "$dmg" --clobber
+          printf '%s\n' "$files" | xargs -r gh release upload "$TAG" --clobber
 
   site:
     name: Refresh download site
     needs: [discover, build, publish]
-    if: needs.discover.outputs.has == 'true'
+    if: needs.discover.outputs.has == 'true' && needs.publish.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: github-pages
