@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DSH Desktop · 非官方构建</title>
+<meta name="description" content="DeepSeek Harness 桌面端的非官方 macOS 构建，由 GitHub Actions 直接从上游源码编译，提供 nightly 与版本化安装包。">
+<meta property="og:title" content="DSH Desktop · 非官方构建">
+<meta property="og:description" content="DeepSeek Harness 桌面端的非官方 macOS 构建，nightly 与版本化安装包。">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234d6bfe'/><text x='16' y='22' font-size='16' font-family='system-ui' font-weight='700' fill='white' text-anchor='middle'>D</text></svg>">
+<style>
+  :root {
+    --bg: #06070b;
+    --panel: #0e1118;
+    --panel-2: #131826;
+    --line: #1f2534;
+    --text: #eceef6;
+    --muted: #98a1b5;
+    --accent: #4d6bfe;
+    --accent-2: #8a6cff;
+    --warn: #f0b429;
+    --radius: 16px;
+    --max: 1080px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.65;
+  }
+  a { color: inherit; text-decoration: none; }
+  .glow {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(60% 45% at 50% -10%, rgba(77, 107, 254, .28), transparent 70%),
+      radial-gradient(40% 30% at 85% 10%, rgba(138, 108, 255, .16), transparent 70%);
+  }
+  .wrap { position: relative; z-index: 1; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    max-width: var(--max); margin: 0 auto; padding: 22px 24px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .2px; }
+  .brand .mark {
+    width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-size: 15px;
+  }
+  nav { display: flex; gap: 22px; font-size: 14px; color: var(--muted); }
+  nav a:hover { color: var(--text); }
+  main { max-width: var(--max); margin: 0 auto; padding: 0 24px 96px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--line); background: rgba(255,255,255,.03);
+    border-radius: 999px; padding: 5px 13px; font-size: 12.5px; color: var(--muted);
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
+  .hero { padding: 64px 0 40px; text-align: center; }
+  .hero h1 {
+    margin: 22px 0 14px; font-size: clamp(40px, 7vw, 70px); line-height: 1.08;
+    letter-spacing: -.03em; font-weight: 700;
+    background: linear-gradient(180deg, #fff 30%, #a9b3cc);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero p { margin: 0 auto; max-width: 620px; color: var(--muted); font-size: 17px; }
+  .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 32px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 9px; padding: 13px 26px; border-radius: 12px;
+    font-size: 15px; font-weight: 600; border: 1px solid transparent; transition: transform .15s ease, opacity .15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; }
+  .btn.ghost { background: rgba(255,255,255,.04); border-color: var(--line); color: var(--text); }
+  .hero-meta { margin-top: 26px; font-size: 13px; color: var(--muted); display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; }
+  .hero-meta code { color: #c3cbe0; background: rgba(255,255,255,.05); padding: 2px 7px; border-radius: 6px; font-size: 12px; }
+  h2 { font-size: 22px; margin: 0 0 6px; letter-spacing: -.01em; }
+  section { padding: 44px 0 8px; }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+  .section-head p { margin: 0; color: var(--muted); font-size: 14px; }
+  .channels { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .card {
+    background: linear-gradient(180deg, var(--panel), var(--panel-2));
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 22px;
+  }
+  .card .tag { display: inline-block; font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  .card h3 { margin: 10px 0 4px; font-size: 19px; }
+  .card .ver { color: var(--muted); font-size: 13.5px; }
+  .card dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 18px 0 0; font-size: 13px; }
+  .card dt { color: var(--muted); }
+  .card dd { margin: 0; text-align: right; color: #ccd3e4; font-variant-numeric: tabular-nums; }
+  .card .btn { width: 100%; justify-content: center; margin-top: 18px; }
+  .table-wrap { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 13px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: rgba(255,255,255,.02); }
+  td.num { font-variant-numeric: tabular-nums; color: #ccd3e4; }
+  .pill { font-size: 11.5px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .pill.nightly { color: #9db4ff; border-color: #2a3a6e; background: rgba(77,107,254,.12); }
+  .dl { color: var(--accent); font-weight: 600; }
+  .dl:hover { text-decoration: underline; }
+  .install { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .step { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+  .step .n { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-size: 13px; font-weight: 700; color: var(--accent); background: rgba(77,107,254,.14); margin-bottom: 12px; }
+  .step h4 { margin: 0 0 6px; font-size: 15px; }
+  .step p { margin: 0; color: var(--muted); font-size: 13.5px; }
+  .code { display: flex; align-items: center; gap: 10px; margin-top: 10px; background: #080a10; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .code code { flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: #c8d2ea; overflow-x: auto; }
+  .code button { border: 1px solid var(--line); background: rgba(255,255,255,.05); color: var(--muted); border-radius: 7px; padding: 4px 9px; font-size: 12px; cursor: pointer; }
+  .code button:hover { color: var(--text); }
+  .notice { display: flex; gap: 12px; border: 1px solid #3a2f16; background: rgba(240,180,41,.07); border-radius: var(--radius); padding: 16px 18px; font-size: 13.5px; color: #e6d3a8; }
+  .notice strong { color: #f5c65a; }
+  footer { border-top: 1px solid var(--line); margin-top: 64px; padding: 28px 24px 48px; color: var(--muted); font-size: 13px; }
+  footer .inner { max-width: var(--max); margin: 0 auto; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  footer a:hover { color: var(--text); }
+  .empty { padding: 28px; text-align: center; color: var(--muted); font-size: 14px; }
+  @media (max-width: 640px) {
+    nav { display: none; }
+    th:nth-child(3), td:nth-child(3), th:nth-child(5), td:nth-child(5) { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="wrap">
+  <header>
+    <a class="brand" href="/"><span class="mark">D</span> DSH Desktop</a>
+    <nav>
+      <a href="#download">下载</a>
+      <a href="#versions">版本</a>
+      <a href="#install">安装</a>
+      <a id="repo-link" href="https://github.com/martinx/dsh-desktop" rel="noopener">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <span class="badge"><span class="dot"></span> UNOFFICIAL BUILDS · 非官方构建</span>
+      <h1>DSH Desktop</h1>
+      <p>DeepSeek Harness 桌面端的自动构建。每小时跟踪上游 <code style="font-size:14px">master</code> 编译 nightly，并为每个上游版本保留安装包。</p>
+      <div class="actions">
+        <a id="download-nightly" class="btn primary" href="#download">下载最新 Nightly</a>
+        <a class="btn ghost" href="https://github.com/deepseek-ai/deepseek-harness" rel="noopener">上游源码 ↗</a>
+      </div>
+      <div class="hero-meta" id="hero-meta"></div>
+    </section>
+
+    <section id="download">
+      <div class="section-head">
+        <div><h2>下载</h2><p>macOS Apple Silicon（arm64）· 未签名安装包</p></div>
+      </div>
+      <div class="channels" id="channels">
+        <div class="empty">正在加载构建信息…</div>
+      </div>
+      <div class="notice" style="margin-top:16px">
+        <span>⚠️</span>
+        <div><strong>未签名、未公证。</strong>这些安装包由公开源码在 GitHub Actions 上编译，没有 Apple Developer ID 签名，因此 macOS 会拦截首次打开。请按下方安装步骤清除隔离标记。不是 DeepSeek 官方发布。</div>
+      </div>
+    </section>
+
+    <section id="versions">
+      <div class="section-head">
+        <div><h2>版本列表</h2><p>上游每个 <code>dsh-v*</code> tag 对应一个安装包</p></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>版本</th><th>通道</th><th>上游提交</th><th>构建时间</th><th>大小</th><th></th></tr></thead>
+          <tbody id="version-rows"><tr><td colspan="6" class="empty">正在加载…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="install">
+      <div class="section-head">
+        <div><h2>安装</h2><p>三步完成，之后可正常从应用程序启动</p></div>
+      </div>
+      <div class="install">
+        <div class="step">
+          <div class="n">1</div>
+          <h4>下载并打开镜像</h4>
+          <p>下载 <code>.dmg</code>，双击打开，把 DeepSeek Harness 拖进「应用程序」。</p>
+        </div>
+        <div class="step">
+          <div class="n">2</div>
+          <h4>清除隔离标记</h4>
+          <p>未签名应用首次启动会被拦截。在终端执行一次：</p>
+          <div class="code">
+            <code>xattr -dr com.apple.quarantine "/Applications/DeepSeek Harness.app"</code>
+            <button type="button" data-copy>xattr</button>
+          </div>
+        </div>
+        <div class="step">
+          <div class="n">3</div>
+          <h4>启动</h4>
+          <p>从启动台或应用程序文件夹打开。没有自动更新，升级请重新下载最新安装包。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="about">
+      <div class="section-head"><div><h2>说明</h2><p>关于这个站点和这些构建</p></div></div>
+      <div class="install">
+        <div class="step">
+          <h4>来源</h4>
+          <p>所有安装包由 GitHub Actions 直接从 <a class="dl" href="https://github.com/deepseek-ai/deepseek-harness" rel="noopener">deepseek-ai/deepseek-harness</a> 的源码编译，未修改代码。构建脚本和本站源码在 <a class="dl" id="repo-link-2" href="https://github.com/martinx/dsh-desktop" rel="noopener">martinx/dsh-desktop</a>，可自行核对。</p>
+        </div>
+        <div class="step">
+          <h4>非官方</h4>
+          <p>本站与 DeepSeek 无隶属或背书关系。「DeepSeek Harness」是 DeepSeek 的商标，此处仅用于说明来源。上游以 MIT 许可证发布。</p>
+        </div>
+        <div class="step">
+          <h4>为什么不签名</h4>
+          <p>Apple Developer ID 签名与公证需要付费开发者账号，且上游的发布流程绑定其自托管签名机器，无法在公开 CI 复现。因此这里只提供未签名的开发构建。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="inner">
+      <span>非官方构建 · Unofficial builds of DeepSeek Harness</span>
+      <span><a href="https://github.com/martinx/dsh-desktop" rel="noopener">源码</a> · <a href="https://github.com/deepseek-ai/deepseek-harness" rel="noopener">上游项目</a> · MIT License</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+  const DAY = new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+  const formatSize = (bytes) => bytes ? `${Math.round(bytes / 1024 / 1024)} MB` : '—';
+  const formatDate = (value) => value ? DAY.format(new Date(value)) : '—';
+  const shortSha = (sha) => (sha || '').slice(0, 10) || '—';
+
+  function pickAsset(build) {
+    return (build?.assets || []).find((asset) => asset.name.endsWith('.dmg')) || (build?.assets || [])[0];
+  }
+
+  function renderCard(build, { tag, title, description }) {
+    const asset = pickAsset(build);
+    if (!build || !asset) {
+      return `<div class="card"><span class="tag">${tag}</span><h3>${title}</h3><p class="ver">${description}</p><p class="ver">暂无可用构建。</p></div>`;
+    }
+    return `
+      <div class="card">
+        <span class="tag">${tag}</span>
+        <h3>${title}</h3>
+        <p class="ver">版本 ${build.version} · ${description}</p>
+        <dl>
+          <dt>上游提交</dt><dd>${shortSha(build.sha)}</dd>
+          <dt>构建时间</dt><dd>${formatDate(build.builtAt)}</dd>
+          <dt>大小</dt><dd>${formatSize(asset.size)}</dd>
+          <dt>下载量</dt><dd>${asset.downloads ?? 0}</dd>
+        </dl>
+        <a class="btn primary" href="${asset.url}">下载 .dmg</a>
+      </div>`;
+  }
+
+  function renderRows(builds) {
+    if (!builds.length) return '<tr><td colspan="6" class="empty">还没有已发布的构建。</td></tr>';
+    return builds.map((build) => {
+      const asset = pickAsset(build);
+      const channel = build.channel === 'nightly'
+        ? '<span class="pill nightly">nightly</span>'
+        : '<span class="pill">版本</span>';
+      return `<tr>
+        <td><strong>${build.version}</strong></td>
+        <td>${channel}</td>
+        <td class="num">${shortSha(build.sha)}</td>
+        <td class="num">${formatDate(build.builtAt)}</td>
+        <td class="num">${asset ? formatSize(asset.size) : '—'}</td>
+        <td>${asset ? `<a class="dl" href="${asset.url}">下载</a>` : '—'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function main() {
+    let data;
+    try {
+      const response = await fetch(`data/builds.json?t=${Date.now()}`, { cache: 'no-store' });
+      if (!response.ok) throw new Error(String(response.status));
+      data = await response.json();
+    } catch {
+      document.getElementById('channels').innerHTML = '<div class="empty">构建清单尚未生成。</div>';
+      document.getElementById('version-rows').innerHTML = '<tr><td colspan="6" class="empty">构建清单尚未生成。</td></tr>';
+      return;
+    }
+
+    document.getElementById('repo-link').href = `https://github.com/${data.repo}`;
+    document.getElementById('repo-link-2').href = `https://github.com/${data.repo}`;
+
+    const builds = data.builds || [];
+    const nightly = builds.find((build) => build.channel === 'nightly');
+    const versions = builds.filter((build) => build.channel !== 'nightly');
+    const latest = versions[0];
+
+    const nightlyAsset = pickAsset(nightly);
+    if (nightlyAsset) {
+      const link = document.getElementById('download-nightly');
+      link.href = nightlyAsset.url;
+      link.textContent = `下载最新 Nightly（${nightly.version}）`;
+    }
+
+    const meta = document.getElementById('hero-meta');
+    if (nightly) {
+      meta.innerHTML = `
+        <span>upstream <code>${shortSha(nightly.sha)}</code></span>
+        <span>version <code>${nightly.version}</code></span>
+        <span>built <code>${formatDate(nightly.builtAt)}</code></span>`;
+    }
+
+    document.getElementById('channels').innerHTML = [
+      renderCard(nightly, { tag: 'NIGHTLY', title: '紧跟上游 master', description: '每小时检查一次上游提交' }),
+      renderCard(latest, { tag: 'VERSION', title: '版本化构建', description: latest ? `对应上游 tag ${latest.tag}` : '暂无版本构建' }),
+    ].join('');
+
+    document.getElementById('version-rows').innerHTML = renderRows(builds);
+  }
+
+  document.querySelectorAll('[data-copy]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const text = button.parentElement.querySelector('code').textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        button.textContent = '已复制';
+        setTimeout(() => { button.textContent = 'xattr'; }, 1500);
+      } catch {
+        button.textContent = '复制失败';
+      }
+    });
+  });
+
+  main();
+</script>
+</body>
+</html>

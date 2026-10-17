@@ -1,0 +1,155 @@
+name: Desktop nightly
+
+# Tracks upstream master, builds an unsigned macOS arm64 disk image on a
+# GitHub-hosted runner, publishes it to the rolling `nightly` release, and
+# refreshes the download site. Unsigned local packaging needs no machine
+# preset, signing identity, or notarization credentials.
+on:
+  schedule:
+    # Hourly. Most runs stop after the resolve job when upstream has not moved.
+    - cron: '5 * * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Rebuild even when upstream master has not moved'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: desktop-nightly
+  cancel-in-progress: false
+
+env:
+  UPSTREAM: deepseek-ai/deepseek-harness
+  GH_REPO: ${{ github.repository }}
+  DSH_TELEMETRY_DISABLED: '1'
+  DSH_DESKTOP_UPDATE_CHANNEL: nightly
+
+jobs:
+  resolve:
+    name: Resolve upstream master
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+      sha: ${{ steps.upstream.outputs.sha }}
+    steps:
+      - name: Read upstream master
+        id: upstream
+        run: |
+          set -euo pipefail
+          sha=$(git ls-remote "https://github.com/$UPSTREAM.git" refs/heads/master | cut -f1)
+          test -n "$sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - name: Skip when this commit is already published
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.upstream.outputs.sha }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+          body=$(gh release view nightly --json body --jq '.body' 2>/dev/null || true)
+          built=$(printf '%s' "$body" | node -e '
+            let input = "";
+            process.stdin.on("data", (chunk) => { input += chunk })
+            process.stdin.on("end", () => {
+              const match = /dsh-build:\s*(\{[^}]*\})/u.exec(input)
+              if (!match) return
+              try { process.stdout.write(JSON.parse(match[1]).sha ?? "") } catch {}
+            })')
+          if [ "$FORCE" = 'true' ] || [ "$built" != "$SHA" ]; then
+            echo 'build=true' >> "$GITHUB_OUTPUT"
+          else
+            echo "already published $SHA" >> "$GITHUB_STEP_SUMMARY"
+            echo 'build=false' >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: Package macOS arm64
+    needs: resolve
+    if: needs.resolve.outputs.build == 'true'
+    runs-on: macos-14
+    timeout-minutes: 300
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: deepseek-ai/deepseek-harness
+          ref: ${{ needs.resolve.outputs.sha }}
+          fetch-depth: 1
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Package unsigned disk image
+        run: pnpm run package:desktop:mac:arm64:unsigned
+      - name: Read build metadata
+        id: meta
+        run: |
+          set -euo pipefail
+          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Upload disk image
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg-nightly
+          path: apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/**/*.dmg
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish nightly release and site
+    needs: [resolve, build]
+    if: needs.resolve.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: github-pages
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dmg-nightly
+          path: dist
+      - name: Update the rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.resolve.outputs.sha }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          dmg=$(find dist -name '*.dmg' -type f | head -1)
+          test -n "$dmg"
+          built=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+          meta=$(node -e 'console.log(JSON.stringify({channel:"nightly",version:process.argv[1],sha:process.argv[2],builtAt:process.argv[3]}))' "$VERSION" "$SHA" "$built")
+          {
+            echo "<!-- dsh-build: $meta -->"
+            echo
+            echo "Unsigned macOS arm64 (Apple Silicon) build of upstream \`$SHA\` at version \`$VERSION\`."
+            echo
+            echo "This is an unofficial build. macOS quarantines unsigned downloads; after copying the app to \`/Applications\`, run:"
+            echo
+            echo '```sh'
+            echo 'xattr -dr com.apple.quarantine "/Applications/DeepSeek Harness.app"'
+            echo '```'
+          } > release.md
+          if gh release view nightly >/dev/null 2>&1; then
+            gh release edit nightly --prerelease --title "Nightly · $VERSION" --notes-file release.md
+          else
+            gh release create nightly --prerelease --title "Nightly · $VERSION" --notes-file release.md
+          fi
+          gh release upload nightly "$dmg" --clobber
+      - name: Regenerate download manifest
+        run: node scripts/build-manifest.mjs > site/data/builds.json
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4

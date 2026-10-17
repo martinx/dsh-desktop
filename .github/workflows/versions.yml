@@ -1,0 +1,154 @@
+name: Desktop versions
+
+# Builds one unsigned macOS arm64 disk image per upstream `dsh-v*` tag, so every
+# published upstream version keeps a downloadable artifact here. Scheduled runs
+# only build tags newer than the newest existing release; manual dispatch can
+# backfill older tags.
+on:
+  schedule:
+    - cron: '35 * * * *'
+  workflow_dispatch:
+    inputs:
+      backfill:
+        description: 'Build every missing upstream tag instead of only tags newer than the newest release'
+        type: boolean
+        default: false
+      max_tags:
+        description: 'Maximum tags to build in one run (0 = no limit)'
+        type: string
+        default: '3'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: desktop-versions
+  cancel-in-progress: false
+
+env:
+  UPSTREAM: deepseek-ai/deepseek-harness
+  GH_REPO: ${{ github.repository }}
+  DSH_TELEMETRY_DISABLED: '1'
+  DSH_DESKTOP_UPDATE_CHANNEL: latest
+
+jobs:
+  discover:
+    name: Find unpublished upstream tags
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      has: ${{ steps.plan.outputs.has }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Plan builds
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BACKFILL: ${{ inputs.backfill }}
+          MAX_TAGS: ${{ inputs.max_tags }}
+        run: node scripts/plan-versions.mjs
+
+  build:
+    name: Package ${{ matrix.version }}
+    needs: discover
+    if: needs.discover.outputs.has == 'true'
+    runs-on: macos-14
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: deepseek-ai/deepseek-harness
+          ref: ${{ matrix.tag }}
+          fetch-depth: 1
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Package unsigned disk image
+        run: pnpm run package:desktop:mac:arm64:unsigned
+      - name: Verify the checked-out tag matches the planned version
+        id: meta
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          if [ "$version" != "${{ matrix.version }}" ]; then
+            echo "package.json version $version does not match tag ${{ matrix.tag }}" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          test -n "$(find apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts -name '*.dmg' -type f | head -1)"
+      - name: Upload disk image
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg-${{ matrix.version }}
+          path: apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/**/*.dmg
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Release ${{ matrix.version }}
+    needs: [discover, build]
+    if: needs.discover.outputs.has == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dmg-${{ matrix.version }}
+          path: dist
+      - name: Create the version release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ matrix.sha }}
+          VERSION: ${{ matrix.version }}
+          TAG: ${{ matrix.tag }}
+        run: |
+          set -euo pipefail
+          dmg=$(find dist -name '*.dmg' -type f | head -1)
+          test -n "$dmg"
+          built=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+          meta=$(node -e 'console.log(JSON.stringify({channel:"version",version:process.argv[1],sha:process.argv[2],builtAt:process.argv[3]}))' "$VERSION" "$SHA" "$built")
+          {
+            echo "<!-- dsh-build: $meta -->"
+            echo
+            echo "Unsigned macOS arm64 (Apple Silicon) build of upstream tag \`$TAG\`."
+            echo
+            echo "This is an unofficial build. macOS quarantines unsigned downloads; after copying the app to \`/Applications\`, run:"
+            echo
+            echo '```sh'
+            echo 'xattr -dr com.apple.quarantine "/Applications/DeepSeek Harness.app"'
+            echo '```'
+          } > release.md
+          gh release create "$TAG" --title "Version $VERSION" --notes-file release.md
+          gh release upload "$TAG" "$dmg" --clobber
+
+  site:
+    name: Refresh download site
+    needs: [discover, build, publish]
+    if: needs.discover.outputs.has == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: github-pages
+    steps:
+      - uses: actions/checkout@v4
+      - name: Regenerate download manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/build-manifest.mjs > site/data/builds.json
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
