@@ -68,6 +68,8 @@
   .chip:hover { color: var(--text); }
   .chip[aria-pressed="true"] { border-color: rgba(77,107,254,.55); background: rgba(77,107,254,.16); color: #cdd8ff; }
   .chip small { font-size: 10.5px; opacity: .65; }
+  .detected { margin: 10px 0 0; text-align: center; font-size: 11.5px; color: #6d7893; }
+  .detected b { color: #9db4ff; font-weight: 600; }
   .dl-row { display: flex; gap: 12px; margin-top: 18px; align-items: center; }
   select.select { appearance: none; background: rgba(255,255,255,.04) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%2398a2b8' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 14px center; border: 1px solid var(--line); color: var(--text); border-radius: 12px; padding: 14px 40px 14px 16px; font-size: 14px; min-width: 0; flex: 1; cursor: pointer; }
   .btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; border-radius: 12px; padding: 14px 26px; font-size: 15px; font-weight: 600; border: 1px solid transparent; cursor: pointer; transition: transform .15s ease, opacity .15s; }
@@ -160,7 +162,7 @@
   </header>
 
   <main>
-    <section class="hero">
+    <section class="hero" id="download">
       <span class="badge"><span class="dot"></span> <span data-i18n="hero.badge">UNOFFICIAL BUILDS · 非官方构建</span></span>
       <h1>DSH Desktop</h1>
       <p class="lead" data-i18n="hero.lead">DeepSeek Harness 桌面端的自动构建。每小时跟随上游源码编译 nightly，并为每个上游版本保留安装包。</p>
@@ -168,6 +170,7 @@
       <div class="download-box">
         <div class="download-inner">
           <div class="chips" id="platform-chips"></div>
+          <p class="detected" id="detected-hint"></p>
           <div class="dl-row">
             <select class="select" id="version-select" aria-label="version"></select>
             <a class="btn primary" id="download-button" href="#download"><span data-i18n="download.button">下载</span> <span class="size" id="download-size"></span></a>
@@ -214,24 +217,10 @@
       </div>
     </section>
 
-    <section id="download">
-      <div class="section-head">
-        <h2 data-i18n="download.title">下载</h2>
-        <p data-i18n="download.sub">选择平台与版本。安装包未签名，首次打开需按安装说明操作。</p>
-      </div>
-      <div class="panel" style="padding:22px">
-        <div class="chips" id="platform-chips-2"></div>
-        <div class="dl-row">
-          <select class="select" id="version-select-2" aria-label="version"></select>
-          <a class="btn primary" id="download-button-2" href="#download"><span data-i18n="download.button">下载</span> <span class="size" id="download-size-2"></span></a>
-        </div>
-        <div class="dl-meta" id="download-meta-2"></div>
-      </div>
-      <div class="notice">
-        <span>⚠️</span>
-        <div><strong data-i18n="notice.title">未签名、未公证。</strong><span data-i18n="notice.body">这些安装包由公开源码在 GitHub Actions 上编译，没有 Apple Developer ID 签名，也没有 Windows 代码签名，因此系统会提示风险。安装步骤见下方。</span></div>
-      </div>
-    </section>
+    <div class="notice" style="margin:52px auto 0; max-width:940px">
+      <span>⚠️</span>
+      <div><strong data-i18n="notice.title">未签名、未公证。</strong><span data-i18n="notice.body">这些安装包由公开源码在 GitHub Actions 上编译，没有 Apple Developer ID 签名，也没有 Windows 代码签名，因此系统会提示风险。安装步骤见下方。</span></div>
+    </div>
 
     <section id="versions">
       <div class="section-head">
@@ -373,6 +362,7 @@
       'empty': '还没有已发布的构建。',
       'mock.bot': '可以介绍一下自己吗？', 'mock.user': '帮我整理这份会议记录，并生成待办列表。',
       'mock.composer': '描述你想要构建的内容，/ 调用指令，@ 文件或对话',
+      'detected': '已按你的系统选择',
     },
     en: {
       'brand.sub': 'Unofficial',
@@ -426,6 +416,7 @@
       'mock.bot': 'Tell me about yourself.',
       'mock.user': 'Summarize this meeting note and turn it into a todo list.',
       'mock.composer': 'Describe what you want to build, / for commands, @ for files or sessions',
+      'detected': 'Detected for your system:',
     },
   };
 
@@ -438,7 +429,7 @@
   const DAY = new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
   const DAY_EN = new Intl.DateTimeFormat('en-GB', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
 
-  const state = { lang: 'zh', platform: 'mac-arm64', tag: null, data: null };
+  const state = { lang: 'zh', platform: 'mac-arm64', detected: 'mac-arm64', tag: null, data: null };
   const t = (key) => I18N[state.lang][key] ?? I18N.zh[key] ?? key;
   const formatSize = (bytes) => (bytes ? `${Math.round(bytes / 1024 / 1024)} MB` : '—');
   const formatDate = (value) => (value ? (state.lang === 'zh' ? DAY : DAY_EN).format(new Date(value)) : '—');
@@ -481,6 +472,10 @@
     container.querySelectorAll('[data-platform]').forEach((button) => {
       button.addEventListener('click', () => { state.platform = button.dataset.platform; render(); });
     });
+    const hint = document.getElementById('detected-hint');
+    if (hint && container.id === 'platform-chips') {
+      hint.innerHTML = `${t('detected')} <b>${t(`platform.${state.detected}`)}</b>`;
+    }
   }
 
   function renderSelect(select, suffix) {
@@ -570,6 +565,7 @@
     const stored = localStorage.getItem('dsh-lang');
     const browserLang = (navigator.language || 'zh').toLowerCase().startsWith('zh') ? 'zh' : 'en';
     state.platform = detectPlatform();
+    state.detected = state.platform;
     applyLanguage(stored || browserLang);
 
     try {
