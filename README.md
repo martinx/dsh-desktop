@@ -62,6 +62,7 @@ Static HTML/CSS/JS in `site/`, deployed with `actions/deploy-pages`. No build st
 - Language toggle persists in `localStorage`; default follows `navigator.language`.
 - Platform detection defaults Windows visitors to `win-x64` and everyone else to `mac-arm64`; visitors can switch manually.
 - The version picker lists `nightly` first, then every version release.
+- Each version row opens the release changelog inline. `scripts/sync-changelogs.mjs` snapshots the upstream release notes, renders the Markdown to HTML, and writes `site/data/changelogs.json` at deploy time, so the page never fetches github.com when a visitor opens a changelog.
 
 ## Caveat: GitHub download reachability
 

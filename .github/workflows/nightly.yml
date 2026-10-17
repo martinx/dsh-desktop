@@ -181,6 +181,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/build-manifest.mjs > site/data/builds.json
+      - name: Snapshot release changelogs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/sync-changelogs.mjs > site/data/changelogs.json
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

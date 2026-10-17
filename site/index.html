@@ -134,6 +134,30 @@
   footer { border-top: 1px solid var(--line); margin-top: 90px; padding: 30px 24px 56px; color: var(--muted); font-size: 13px; }
   footer .inner { max-width: var(--max); margin: 0 auto; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   footer a:hover { color: var(--text); }
+  .log-btn { border: 1px solid var(--line); background: rgba(255,255,255,.04); color: #a9b6d6; border-radius: 8px; padding: 5px 12px; font-size: 12px; cursor: pointer; }
+  .log-btn:hover { color: #fff; border-color: rgba(77,107,254,.55); background: rgba(77,107,254,.14); }
+  .log-dialog { width: min(780px, calc(100vw - 28px)); max-height: 84vh; padding: 0; border: 1px solid var(--line); border-radius: 18px; background: #0a0d14; color: var(--text); box-shadow: 0 40px 120px -40px rgba(0,0,0,.95); }
+  .log-dialog::backdrop { background: rgba(2, 3, 7, .74); }
+  .log-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 20px 24px 14px; border-bottom: 1px solid var(--line); background: #0a0d14; }
+  .log-head h3 { margin: 5px 0 0; font-size: 18px; letter-spacing: -.01em; }
+  .log-channel { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  .log-close { flex: none; width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--line); background: rgba(255,255,255,.04); color: var(--muted); cursor: pointer; font-size: 13px; }
+  .log-close:hover { color: var(--text); }
+  .log-body { padding: 20px 26px 30px; overflow-y: auto; max-height: calc(84vh - 86px); font-size: 14px; line-height: 1.72; color: #c9d1e3; }
+  .log-body > :first-child { margin-top: 0; }
+  .log-body h3 { margin: 26px 0 10px; font-size: 16.5px; color: #fff; }
+  .log-body h4 { margin: 20px 0 8px; font-size: 14.5px; color: #e7ecf8; }
+  .log-body ul, .log-body ol { margin: 8px 0 14px; padding-left: 22px; }
+  .log-body li { margin: 5px 0; }
+  .log-body li::marker { color: #55607a; }
+  .log-body p { margin: 10px 0; }
+  .log-body code { background: rgba(255,255,255,.07); padding: 1px 6px; border-radius: 5px; font-size: 12.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .log-body a { color: #9db4ff; text-decoration: underline; text-underline-offset: 2px; }
+  .log-body a:hover { color: #c3d1ff; }
+  .log-body hr { border: 0; border-top: 1px solid var(--line); margin: 20px 0; }
+  .log-body blockquote { margin: 12px 0; padding-left: 14px; border-left: 2px solid var(--line); color: var(--muted); }
+  .log-body strong { color: #fff; }
+  .log-note { color: var(--muted); }
   .empty { padding: 30px; text-align: center; color: var(--muted); font-size: 14px; }
   @media (max-width: 760px) {
     nav.links { display: none; }
@@ -235,8 +259,9 @@
             <th data-i18n="table.date">构建时间</th>
             <th data-i18n="table.macarm">macOS Apple 芯片</th>
             <th data-i18n="table.win">Windows x64</th>
+            <th data-i18n="table.log">更新日志</th>
           </tr></thead>
-          <tbody id="version-rows"><tr><td colspan="5" class="empty">…</td></tr></tbody>
+          <tbody id="version-rows"><tr><td colspan="6" class="empty">…</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -308,6 +333,14 @@
   </footer>
 </div>
 
+  <dialog id="log-dialog" class="log-dialog" aria-labelledby="log-title">
+    <div class="log-head">
+      <div><span class="log-channel" id="log-channel"></span><h3 id="log-title"></h3></div>
+      <button type="button" class="log-close" id="log-close" aria-label="close">✕</button>
+    </div>
+    <div class="log-body" id="log-body"></div>
+  </dialog>
+
 <script>
   const I18N = {
     zh: {
@@ -333,7 +366,10 @@
       'versions.title': '版本列表',
       'versions.sub': '每个上游 dsh-v* tag 对应一组安装包，nightly 跟随上游 master。',
       'table.version': '版本', 'table.channel': '通道', 'table.date': '构建时间',
-      'table.macarm': 'macOS Apple 芯片', 'table.win': 'Windows x64',
+      'table.macarm': 'macOS Apple 芯片', 'table.win': 'Windows x64', 'table.log': '更新日志',
+      'log.view': '查看', 'log.versionTitle': '版本', 'log.nightlyTitle': 'nightly 构建',
+      'log.norm': '', 'log.none': '暂无更新日志',
+      'log.nightlyNote': 'nightly 跟随上游 master，每次构建对应上游最新提交；逐版本的变化请看版本化发布的更新日志。',
       'channel.nightly': 'nightly', 'channel.version': '版本',
       'install.title': '安装', 'install.sub': '官方未签名的开发构建，按下面步骤即可正常使用。',
       'install.one.title': '下载并安装',
@@ -386,7 +422,10 @@
       'versions.title': 'Versions',
       'versions.sub': 'Each upstream dsh-v* tag maps to one set of installers; nightly follows upstream master.',
       'table.version': 'Version', 'table.channel': 'Channel', 'table.date': 'Built',
-      'table.macarm': 'macOS Apple silicon', 'table.win': 'Windows x64',
+      'table.macarm': 'macOS Apple silicon', 'table.win': 'Windows x64', 'table.log': 'Changelog',
+      'log.view': 'View', 'log.versionTitle': 'Version', 'log.nightlyTitle': 'Nightly build',
+      'log.norm': '', 'log.none': 'No changelog yet',
+      'log.nightlyNote': 'Nightly follows upstream master and packs the latest commit; see the versioned releases for per-version changelogs.',
       'channel.nightly': 'nightly', 'channel.version': 'version',
       'install.title': 'Install', 'install.sub': 'Unsigned development builds; these steps make them usable.',
       'install.one.title': 'Download and install',
@@ -427,7 +466,7 @@
   const DAY = new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
   const DAY_EN = new Intl.DateTimeFormat('en-GB', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
 
-  const state = { lang: 'zh', platform: 'mac-arm64', detected: 'mac-arm64', tag: null, data: null };
+  const state = { lang: 'zh', platform: 'mac-arm64', detected: 'mac-arm64', tag: null, data: null, changelogs: null };
   const t = (key) => I18N[state.lang][key] ?? I18N.zh[key] ?? key;
   const formatSize = (bytes) => (bytes ? `${Math.round(bytes / 1024 / 1024)} MB` : '—');
   const formatDate = (value) => (value ? (state.lang === 'zh' ? DAY : DAY_EN).format(new Date(value)) : '—');
@@ -535,11 +574,27 @@
     ].join('');
   }
 
+  const escapeHtml = (value) => String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+
+  const changelogFor = (tag) => state.changelogs?.entries?.[tag] ?? null;
+
+  function logCell(build) {
+    const entry = changelogFor(build.tag);
+    if (!entry || (!entry.html && !entry.note && entry.channel !== 'nightly')) {
+      return '<span class="dl-link off">—</span>';
+    }
+    return `<button type="button" class="log-btn" data-log="${build.tag}">${t('log.view')}</button>`;
+  }
+
   function renderTable() {
     const builds = orderedBuilds();
     const body = document.getElementById('version-rows');
     if (!builds.length) {
-      body.innerHTML = `<tr><td colspan="5" class="empty">${t('empty')}</td></tr>`;
+      body.innerHTML = `<tr><td colspan="6" class="empty">${t('empty')}</td></tr>`;
       return;
     }
     body.innerHTML = builds.map((build) => {
@@ -556,6 +611,7 @@
         <td class="num">${formatDate(build.builtAt)}</td>
         <td>${cell('mac-arm64')}</td>
         <td>${cell('win-x64')}</td>
+        <td>${logCell(build)}</td>
       </tr>`;
     }).join('');
   }
@@ -584,16 +640,20 @@
     applyLanguage(stored || browserLang);
 
     try {
-      const response = await fetch(`data/builds.json?t=${Date.now()}`, { cache: 'no-store' });
-      if (!response.ok) throw new Error(String(response.status));
-      state.data = await response.json();
+      const [buildsResponse, logsResponse] = await Promise.all([
+        fetch(`data/builds.json?t=${Date.now()}`, { cache: 'no-store' }),
+        fetch(`data/changelogs.json?t=${Date.now()}`, { cache: 'no-store' }),
+      ]);
+      if (!buildsResponse.ok) throw new Error(String(buildsResponse.status));
+      state.data = await buildsResponse.json();
+      if (logsResponse.ok) state.changelogs = await logsResponse.json();
       const builds = orderedBuilds();
       state.tag = builds[0]?.tag ?? null;
       document.getElementById('repo-link').href = `https://github.com/${state.data.repo}`;
       document.getElementById('repo-link-2').href = `https://github.com/${state.data.repo}`;
       render();
     } catch {
-      document.getElementById('version-rows').innerHTML = `<tr><td colspan="5" class="empty">${t('loadFail')}</td></tr>`;
+      document.getElementById('version-rows').innerHTML = `<tr><td colspan="6" class="empty">${t('loadFail')}</td></tr>`;
     }
   }
 
@@ -602,6 +662,29 @@
     localStorage.setItem('dsh-lang', next);
     applyLanguage(next);
   });
+
+  const logDialog = document.getElementById('log-dialog');
+
+  function openChangelog(tag) {
+    const entry = changelogFor(tag);
+    if (!entry) return;
+    const nightly = entry.channel === 'nightly';
+    document.getElementById('log-channel').textContent = nightly ? t('channel.nightly') : t('channel.version');
+    document.getElementById('log-title').textContent = nightly
+      ? `${t('log.nightlyTitle')} · ${entry.version ?? ''}`
+      : `${t('log.versionTitle')} ${entry.version ?? entry.tag}`;
+    const body = document.getElementById('log-body');
+    if (entry.html) body.innerHTML = entry.html;
+    else body.innerHTML = `<p class="log-note">${escapeHtml(nightly ? t('log.nightlyNote') : (entry.note || t('log.none')))}</p>`;
+    logDialog.showModal();
+  }
+
+  document.getElementById('version-rows').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-log]');
+    if (button) openChangelog(button.dataset.log);
+  });
+  document.getElementById('log-close').addEventListener('click', () => logDialog.close());
+  logDialog.addEventListener('click', (event) => { if (event.target === logDialog) logDialog.close(); });
 
   document.querySelectorAll('[data-copy]').forEach((button) => {
     button.addEventListener('click', async () => {
