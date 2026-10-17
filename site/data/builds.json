@@ -1,6 +1,55 @@
 {
-  "generatedAt": "1970-01-01T00:00:00.000Z",
+  "generatedAt": "2026-10-17T02:23:25.162Z",
   "upstream": "deepseek-ai/deepseek-harness",
   "repo": "martinx/dsh-desktop",
-  "builds": []
+  "builds": [
+    {
+      "channel": "version",
+      "version": "0.2.1-alpha.5",
+      "sha": "1517a4dbca0a2789ff1d41ba439600f8547d23fa",
+      "builtAt": "2026-10-17T02:21:51Z",
+      "tag": "dsh-v0.2.1-alpha.5",
+      "pageUrl": "https://github.com/martinx/dsh-desktop/releases/tag/dsh-v0.2.1-alpha.5",
+      "assets": [
+        {
+          "name": "deepseek-harness-0.2.1-alpha.5-mac-arm64-unsigned.dmg",
+          "size": 266911474,
+          "downloads": 0,
+          "url": "https://github.com/martinx/dsh-desktop/releases/download/dsh-v0.2.1-alpha.5/deepseek-harness-0.2.1-alpha.5-mac-arm64-unsigned.dmg"
+        }
+      ]
+    },
+    {
+      "channel": "version",
+      "version": "0.2.1-alpha.4",
+      "sha": "86a402200d95fecef4529d969836f1fe13c6cb0d",
+      "builtAt": "2026-10-17T02:21:41Z",
+      "tag": "dsh-v0.2.1-alpha.4",
+      "pageUrl": "https://github.com/martinx/dsh-desktop/releases/tag/dsh-v0.2.1-alpha.4",
+      "assets": [
+        {
+          "name": "deepseek-harness-0.2.1-alpha.4-mac-arm64-unsigned.dmg",
+          "size": 266853126,
+          "downloads": 0,
+          "url": "https://github.com/martinx/dsh-desktop/releases/download/dsh-v0.2.1-alpha.4/deepseek-harness-0.2.1-alpha.4-mac-arm64-unsigned.dmg"
+        }
+      ]
+    },
+    {
+      "channel": "nightly",
+      "version": "0.2.1-alpha.5",
+      "sha": "1517a4dbca0a2789ff1d41ba439600f8547d23fa",
+      "builtAt": "2026-10-17T02:18:36Z",
+      "tag": "nightly",
+      "pageUrl": "https://github.com/martinx/dsh-desktop/releases/tag/nightly",
+      "assets": [
+        {
+          "name": "deepseek-harness-0.2.1-alpha.5-mac-arm64-unsigned.dmg",
+          "size": 266912122,
+          "downloads": 0,
+          "url": "https://github.com/martinx/dsh-desktop/releases/download/nightly/deepseek-harness-0.2.1-alpha.5-mac-arm64-unsigned.dmg"
+        }
+      ]
+    }
+  ]
 }
