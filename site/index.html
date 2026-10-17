@@ -327,7 +327,7 @@
       'features.one.title': '每小时跟随上游',
       'features.one.body': '定时检查上游 master，有新提交才编译；没有变化时一次运行不到一分钟。',
       'features.two.title': '多平台覆盖',
-      'features.two.body': 'macOS Apple 芯片、macOS Intel、Windows x64 三个平台，页面会自动识别你的系统。',
+      'features.two.body': 'macOS Apple 芯片与 Windows x64，页面会自动识别你的系统并选好平台。',
       'features.three.title': '版本可追溯',
       'features.three.body': '每个上游 dsh-v* 版本都保留独立安装包，任意版本都能单独下载。',
       'versions.title': '版本列表',
@@ -380,7 +380,7 @@
       'features.one.title': 'Tracks upstream hourly',
       'features.one.body': 'Checks upstream master on a schedule and packages only when it moved; an unchanged run finishes in under a minute.',
       'features.two.title': 'Three platforms',
-      'features.two.body': 'macOS Apple silicon, macOS Intel, and Windows x64. The page detects your system automatically.',
+      'features.two.body': 'macOS Apple silicon and Windows x64. The page detects your system and picks the platform for you.',
       'features.three.title': 'Every version kept',
       'features.three.body': 'Each upstream dsh-v* tag keeps its own installers, so any version stays downloadable.',
       'versions.title': 'Versions',
@@ -440,11 +440,29 @@
     return 'mac-arm64';
   }
 
+  function compareVersions(left, right) {
+    const parse = (value) => {
+      const [core, prerelease = ''] = String(value).split('-');
+      return { numbers: core.split('.').map((part) => Number.parseInt(part, 10) || 0), prerelease };
+    };
+    const a = parse(left);
+    const b = parse(right);
+    for (let index = 0; index < 3; index += 1) {
+      const difference = (a.numbers[index] ?? 0) - (b.numbers[index] ?? 0);
+      if (difference !== 0) return difference;
+    }
+    if (a.prerelease === b.prerelease) return 0;
+    if (!a.prerelease) return 1;
+    if (!b.prerelease) return -1;
+    return a.prerelease < b.prerelease ? -1 : 1;
+  }
+
   function orderedBuilds() {
     const builds = state.data?.builds || [];
     return [
       ...builds.filter((build) => build.channel === 'nightly'),
-      ...builds.filter((build) => build.channel !== 'nightly'),
+      ...builds.filter((build) => build.channel !== 'nightly')
+        .sort((left, right) => compareVersions(right.version, left.version)),
     ];
   }
 
