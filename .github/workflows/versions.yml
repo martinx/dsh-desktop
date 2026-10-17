@@ -100,8 +100,8 @@ jobs:
         with:
           name: version-${{ matrix.tag }}-${{ matrix.platform }}
           path: |
-            apps/desktop/.desktop-build/targets/${{ matrix.platform }}/unsigned-artifacts/**/*.dmg
-            apps/desktop/.desktop-build/targets/${{ matrix.platform }}/unsigned-artifacts/**/*.exe
+            apps/desktop/.desktop-build/targets/${{ matrix.platform }}/unsigned-artifacts/**/deepseek-harness-*.dmg
+            apps/desktop/.desktop-build/targets/${{ matrix.platform }}/unsigned-artifacts/**/deepseek-harness-*.exe
           if-no-files-found: error
           retention-days: 14
 
@@ -128,7 +128,7 @@ jobs:
           TAG: ${{ matrix.tag }}
         run: |
           set -euo pipefail
-          files=$(find dist -type f \( -name '*.dmg' -o -name '*.exe' \) | sort)
+          files=$(find dist -type f -name 'deepseek-harness-*' \( -name '*.dmg' -o -name '*.exe' \) | sort)
           test -n "$files"
           built=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
           meta=$(node -e 'console.log(JSON.stringify({channel:"version",version:process.argv[1],sha:process.argv[2],builtAt:process.argv[3]}))' "$VERSION" "$SHA" "$built")
@@ -145,8 +145,12 @@ jobs:
             echo
             echo 'Windows shows a SmartScreen warning; choose "More info" then "Run anyway".'
           } > release.md
-          gh release create "$TAG" --title "Version $VERSION" --notes-file release.md
-          printf '%s\n' "$files" | xargs -r gh release upload "$TAG" --clobber
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "Version $VERSION" --notes-file release.md
+          else
+            gh release create "$TAG" --title "Version $VERSION" --notes-file release.md
+          fi
+          printf '%s\n' "$files" | xargs -d '\n' -r gh release upload "$TAG" --clobber
 
   site:
     name: Refresh download site

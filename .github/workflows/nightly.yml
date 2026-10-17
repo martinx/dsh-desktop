@@ -126,8 +126,8 @@ jobs:
         with:
           name: nightly-${{ matrix.platform }}
           path: |
-            apps/desktop/.desktop-build/targets/${{ matrix.platform }}/unsigned-artifacts/**/*.dmg
-            apps/desktop/.desktop-build/targets/${{ matrix.platform }}/unsigned-artifacts/**/*.exe
+            apps/desktop/.desktop-build/targets/${{ matrix.platform }}/unsigned-artifacts/**/deepseek-harness-*.dmg
+            apps/desktop/.desktop-build/targets/${{ matrix.platform }}/unsigned-artifacts/**/deepseek-harness-*.exe
           if-no-files-found: error
           retention-days: 14
 
@@ -175,7 +175,7 @@ jobs:
           else
             gh release create nightly --prerelease --title "Nightly · $VERSION" --notes-file release.md
           fi
-          find dist -type f \( -name '*.dmg' -o -name '*.exe' \) -print0 \
+          find dist -type f -name 'deepseek-harness-*' \( -name '*.dmg' -o -name '*.exe' \) -print0 \
             | xargs -0 -r gh release upload nightly --clobber
       - name: Regenerate download manifest
         env:

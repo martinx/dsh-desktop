@@ -46,7 +46,16 @@ for (const line of refs.split('\n')) {
 }
 
 const releases = JSON.parse(execFileSync('gh', ['release', 'list', '--repo', REPO, '--limit', '200', '--json', 'tagName'], { encoding: 'utf8' }))
-const released = new Set(releases.map((release) => release.tagName))
+// A tag only counts as released when its release carries an installer. A failed
+// publish leaves the tag behind with no assets, and must be retried.
+const released = new Set(releases.map((release) => release.tagName).filter((tag) => {
+  try {
+    const detail = JSON.parse(execFileSync('gh', ['release', 'view', tag, '--repo', REPO, '--json', 'assets'], { encoding: 'utf8' }))
+    return (detail.assets ?? []).some((asset) => asset.name.startsWith('deepseek-harness-'))
+  } catch {
+    return true
+  }
+}))
 
 let candidates = [...tags.values()].filter((entry) => !released.has(entry.tag))
 if (!backfill && candidates.length > 0) {
