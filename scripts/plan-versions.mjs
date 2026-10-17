@@ -75,12 +75,12 @@ const matrix = {
     sha: entry.sha,
   }))),
 }
-const tags = { include: candidates.map(({ tag, version, sha }) => ({ tag, version, sha })) }
+const tagMatrix = { include: candidates.map(({ tag, version, sha }) => ({ tag, version, sha })) }
 const output = process.env.GITHUB_OUTPUT
 if (output) {
   appendFileSync(output, `has=${candidates.length > 0}\n`)
   appendFileSync(output, `matrix=${JSON.stringify(matrix)}\n`)
-  appendFileSync(output, `tags=${JSON.stringify(tags)}\n`)
+  appendFileSync(output, `tags=${JSON.stringify(tagMatrix)}\n`)
 }
 const summary = process.env.GITHUB_STEP_SUMMARY
 if (summary) {
@@ -88,4 +88,4 @@ if (summary) {
   for (const entry of candidates) lines.push(`- \`${entry.tag}\` (${entry.sha?.slice(0, 10) ?? 'unknown'})`)
   appendFileSync(summary, `${lines.join('\n')}\n`)
 }
-process.stdout.write(`${JSON.stringify({ matrix, tags }, null, 2)}\n`)
+process.stdout.write(`${JSON.stringify({ matrix, tags: tagMatrix }, null, 2)}\n`)
