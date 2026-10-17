@@ -1,0 +1,32 @@
+name: Refresh site
+
+# Rebuilds the download manifest from the current releases and redeploys the
+# static site. Useful after editing or deleting releases by hand.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy download site
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: github-pages
+    steps:
+      - uses: actions/checkout@v4
+      - name: Regenerate download manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/build-manifest.mjs > site/data/builds.json
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4

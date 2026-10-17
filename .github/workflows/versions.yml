@@ -142,6 +142,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: github-pages
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - name: Regenerate download manifest
